@@ -371,7 +371,6 @@ h1, h2, h3 { color: #f1f5f9; }
 # ══════════════════════════════════════════════════════════
 @st.cache_resource
 def load_model():
-<<<<<<< HEAD
 # Cara kebal error: Cari tahu secara dinamis di mana lokasi app.py ini berada
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
@@ -379,9 +378,6 @@ def load_model():
     file_path = os.path.join(current_dir, 'rental_ps_recommender_v1.pkl')
     
     with open(file_path, 'rb') as f:
-=======
-    with open('model ml/rental_ps_recommender_v1.pkl', 'rb') as f:
->>>>>>> c2ba543568430eeb7cea7152d679cf2593b19e02
         return pickle.load(f)
 
 try:
@@ -765,7 +761,6 @@ if menu == "🎯 Rekomendasi Pemain":
         if results.empty:
             st.markdown('<div class="warn-box">⚠️ Tidak ada game yang sesuai dengan kriteria filter. Coba longgarkan filter di sidebar.</div>', unsafe_allow_html=True)
         else:
-<<<<<<< HEAD
             # Summary metrics
             avg_sim  = results["Similarity"].mean()
             avg_rat  = results["Rating_Global"].mean()
@@ -1029,6 +1024,3 @@ st.markdown("""
     RAWG Dataset · 2000 game
 </div>
 """, unsafe_allow_html=True)
-=======
-            st.warning("Tidak ada game yang sesuai dengan kriteria filter.")
->>>>>>> c2ba543568430eeb7cea7152d679cf2593b19e02
