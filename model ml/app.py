@@ -9,7 +9,7 @@ st.set_page_config(page_title="Sistem Rekomendasi Rental PS", layout="wide")
 # ── 1. Load Model ──
 @st.cache_resource # Cache agar model tidak di-load ulang setiap kali ada interaksi
 def load_model():
-    with open('rental_ps_recommender_v1.pkl', 'rb') as f:
+    with open('model ml/rental_ps_recommender_v1.pkl', 'rb') as f:
         return pickle.load(f)
 
 model = load_model()
