@@ -1,0 +1,36 @@
+# ── Virtual Environment ──
+.venv/
+venv/
+env/
+
+# ── Python Cache & Log ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# ── Jupyter Notebook ──
+.ipynb_checkpoints/
+
+# ── VS Code & Editor Settings ──
+.vscode/
+
+# ── OS Generated Files ──
+.DS_Store
+Thumbs.db
+
+# ── Data Mentah (Opsional) ──
+# Uncomment (hapus tanda #) pada baris di bawah ini JIKA ukuran 
+# dataset kamu sangat besar (>50MB) agar tidak memberatkan GitHub.
+# *.csv
+# *.xlsx
+
+# ── Model & File Pickle ──
+# Jika ada file model lama yang tidak terpakai dan ukurannya besar,
+# kamu bisa abaikan dengan menuliskan nama filenya secara spesifik:
+REKOMENDASIPS.pkl
+
+# CATATAN PENTING:
+# Jangan abaikan (ignore) file 'rental_ps_recommender_v1.pkl' dan 'app.py' 
+# karena file tersebut WAJIB ikut ter-upload agar Streamlit Cloud bisa berjalan!
