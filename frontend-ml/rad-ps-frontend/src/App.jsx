@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Gamepad2, User, Store, Search, Info, List, 
-  Monitor, HardDrive, Star, AlertCircle, Image as ImageIcon
+  Monitor, HardDrive, Star, AlertCircle
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api/v1';
+const API_BASE_URL = 'http://localhost:5000/api/v1';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('pemain');
@@ -309,36 +309,16 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {results.map((game, idx) => (
                   <div key={idx} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden hover:border-blue-500/50 transition-all duration-300 group shadow-lg hover:shadow-2xl hover:shadow-blue-900/20 flex flex-col h-full">
-                    
-                    {/* Image Area */}
-                    <div className="h-40 bg-gray-700 relative overflow-hidden flex items-center justify-center">
-                      {game.background_image ? (
-                        <img 
-                          src={game.background_image} 
-                          alt={game.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="text-gray-500 flex flex-col items-center gap-2">
-                          <ImageIcon size={32} />
-                          <span className="text-xs">No Image Available</span>
-                        </div>
-                      )}
-                      
-                      {/* Match Badge */}
-                      <div className="absolute top-3 right-3 bg-gray-900/80 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-600 flex items-center gap-1">
-                        <span className="text-xs font-bold text-green-400">
-                          {Math.round(game.final_score * 100)}% Match
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Content Area */}
                     <div className="p-5 flex-1 flex flex-col">
-                      <h4 className="text-lg font-bold text-white mb-2 line-clamp-1" title={game.name}>
-                        {game.name}
-                      </h4>
-                      
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <h4 className="text-lg font-bold text-white line-clamp-2" title={game.name}>
+                          {game.name}
+                        </h4>
+                        <div className="bg-gray-900/80 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-600 text-xs font-bold text-green-400">
+                          {Math.round(game.final_score * 100)}% Match
+                        </div>
+                      </div>
+
                       <div className="flex flex-wrap gap-2 mb-4">
                         {(game.platforms || '').split(',').slice(0, 2).map((p, i) => (
                           <span key={i} className="text-[10px] font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded uppercase">
@@ -361,7 +341,6 @@ export default function App() {
                           <span>{game.rating || 'N/A'} / 5.0</span>
                         </div>
                       </div>
-
                     </div>
                   </div>
                 ))}
