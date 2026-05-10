@@ -120,6 +120,53 @@ def get_stock_games():
     games = get_test_names()
     return jsonify({"status": "success", "data": games})
 
+@app.route('/api/v1/game/detail/<path:game_name>', methods=['GET'])
+def get_game_detail(game_name):
+    if df_train is None:
+        return jsonify({"status": "error", "message": "Data tidak tersedia"}), 500
+    
+    # Search in df_train first
+    row = df_train[df_train['name'] == game_name]
+    
+    # Also search in df_test if it's a DataFrame
+    in_stock = game_name in get_test_names()
+    playtime = None
+    if in_stock and isinstance(df_test, pd.DataFrame) and 'Total_Playtime' in df_test.columns:
+        test_names = get_test_names()
+        if game_name in test_names:
+            idx = test_names.index(game_name)
+            val = pd.to_numeric(df_test['Total_Playtime'].iloc[idx], errors='coerce')
+            playtime = float(val) if not pd.isna(val) else 0.0
+    
+    if row.empty:
+        return jsonify({"status": "error", "message": "Game tidak ditemukan"}), 404
+    
+    row = row.iloc[0]
+    
+    detail = {
+        "name": str(row['name']) if 'name' in row.index else game_name,
+        "genres": str(row['genres']) if 'genres' in row.index and row['genres'] is not None else None,
+        "rating": float(row['rating']) if 'rating' in row.index and row['rating'] is not None else None,
+        "size_gb": float(row['size_gb']) if 'size_gb' in row.index and row['size_gb'] is not None else None,
+        "Bisa_PS4": str(row['Bisa_PS4']) if 'Bisa_PS4' in row.index else None,
+        "Bisa_PS5": str(row['Bisa_PS5']) if 'Bisa_PS5' in row.index else None,
+        "Local_Multiplayer": str(row['Local_Multiplayer']) if 'Local_Multiplayer' in row.index else None,
+        "popularity_score": float(row['popularity_score']) if 'popularity_score' in row.index else None,
+        "in_stock": in_stock,
+        "total_playtime": playtime,
+    }
+    
+    # Add any extra columns that exist
+    for col in ['Developer', 'Publisher', 'Tahun_Rilis', 'Deskripsi', 'platforms', 'Jumlah_Wishlist']:
+        if col in row.index and row[col] is not None:
+            try:
+                detail[col.lower()] = str(row[col])
+            except:
+                pass
+    
+    return jsonify({"status": "success", "data": detail})
+
+
 @app.route('/api/v1/genres', methods=['GET'])
 def get_genres():
     if df_train is None or 'genres' not in df_train.columns:
@@ -188,8 +235,15 @@ def recommend_player():
 
 @app.route('/api/v1/recommend/roi', methods=['POST'])
 def recommend_roi():
-    data = request.json
+    data = request.json or {}
     top_n = data.get('top_k', 15)
+    ps_version = data.get('ps_version', 'All')
+    multiplayer_only = data.get('multiplayer_only', False)
+    singleplayer_only = data.get('singleplayer_only', False)
+    quick_match = data.get('quick_match', False)
+    genre_filter = data.get('genre_filter', 'All')
+    max_size_gb = float(data.get('max_size_gb', 1000.0))
+    min_rating = float(data.get('min_rating', 0.0))
     
     avg_sim = sim_matrix.mean(axis=0)
     scores_df = pd.DataFrame({
@@ -201,6 +255,9 @@ def recommend_roi():
     
     scores_df['potensi_laku'] = (scores_df['avg_similarity'] * 0.5) + (scores_df['popularity_score'] * 0.5)
     scores_df['roi_score'] = scores_df['potensi_laku'] / scores_df['size_gb'].replace(0, 0.1)
+    
+    mask = build_train_mask(ps_version, multiplayer_only, genre_filter, max_size_gb, min_rating, singleplayer_only, quick_match)
+    scores_df = scores_df[mask]
     
     stock_games = set(get_test_names())
     scores_df = scores_df[~scores_df['name'].isin(stock_games)]
@@ -229,47 +286,100 @@ def recommend_uninstall():
     if uninstall_candidates.empty:
         return jsonify({"status": "success", "data": []})
         
-    uninstall_candidates['mock_playtime_drop'] = np.random.uniform(5, 45, len(uninstall_candidates))
+    # Get total playtime from df_test mapping
+    playtime_dict = {}
+    if isinstance(df_test, pd.DataFrame) and 'Total_Playtime' in df_test.columns:
+        test_names = get_test_names()
+        for idx, name in enumerate(test_names):
+            val = pd.to_numeric(df_test['Total_Playtime'].iloc[idx], errors='coerce')
+            playtime_dict[name] = val if not pd.isna(val) else 0.0
+            
+    uninstall_candidates['total_playtime'] = uninstall_candidates['name'].apply(lambda x: playtime_dict.get(x, 0.0))
     
     size_series = pd.to_numeric(uninstall_candidates['size_gb'], errors='coerce').fillna(50.0) if 'size_gb' in uninstall_candidates.columns else 50.0
-    pop_series = uninstall_candidates['popularity_score'] if 'popularity_score' in uninstall_candidates.columns else 0.5
     
-    uninstall_candidates['uninstall_score'] = (size_series * uninstall_candidates['mock_playtime_drop']) / (pop_series + 0.1)
+    # Calculate Uninstall Score: Large Size but Low Playtime
+    max_playtime = uninstall_candidates['total_playtime'].max()
+    if max_playtime == 0: max_playtime = 1
+    
+    # Invers of playtime (lower is higher score) multiplied by size
+    uninstall_candidates['uninstall_score'] = size_series * (1.0 - (uninstall_candidates['total_playtime'] / max_playtime))
     
     top_uninstall = uninstall_candidates.sort_values('uninstall_score', ascending=False).head(5).replace({np.nan: None})
     
-    cols = ['name', 'mock_playtime_drop']
+    cols = ['name', 'total_playtime']
     if 'size_gb' in top_uninstall.columns: cols.append('size_gb')
-    if 'popularity_score' in top_uninstall.columns: cols.append('popularity_score')
-    if 'background_image' in top_uninstall.columns: cols.append('background_image')
         
     return jsonify({"status": "success", "data": top_uninstall[cols].to_dict(orient='records')})
 
 
-@app.route('/api/v1/analytics/trends', methods=['GET'])
-def analytics_trends():
+@app.route('/api/v1/analytics/stock_summary', methods=['GET'])
+def analytics_stock_summary():
     if df_test is None or df_train is None:
         return jsonify({"status": "error", "message": "Data tidak tersedia"}), 500
         
     stock_games_df = df_train[df_train['name'].isin(get_test_names())].copy() if 'name' in df_train.columns else df_train.iloc[0:0].copy()
-    if stock_games_df.empty:
-        return jsonify({"status": "success", "data": []})
-        
-    sample_size = min(3, len(stock_games_df))
-    sample_games = stock_games_df.sample(sample_size)
     
-    trends = []
-    for _, row in sample_games.iterrows():
-        drop_pct = random.randint(20, 50)
-        action_text = f"Tingkat permainan {row['name']} turun {drop_pct}% minggu ini. Pertimbangkan untuk mengadakan turnamen kecil atau menjadikannya paket promo."
-        trends.append({
-            "game_name": row['name'],
-            "drop_percentage": drop_pct,
-            "prescriptive_action": action_text,
-            "image": row['background_image'] if 'background_image' in stock_games_df.columns else None
-        })
+    # Total Games
+    total_games = len(get_test_names())
+    
+    # Playtime map
+    playtimes = []
+    total_playtime = 0
+    if isinstance(df_test, pd.DataFrame) and 'Total_Playtime' in df_test.columns:
+        test_names = get_test_names()
+        for idx, name in enumerate(test_names):
+            val = pd.to_numeric(df_test['Total_Playtime'].iloc[idx], errors='coerce')
+            pt = float(val) if not pd.isna(val) else 0.0
+            total_playtime += pt
+            
+            # Find genre
+            genre = ''
+            match = stock_games_df[stock_games_df['name'] == name]
+            if not match.empty and 'genres' in match.columns:
+                genre = str(match.iloc[0]['genres']).split(',')[0]
+                
+            playtimes.append({
+                "name": name,
+                "playtime": pt,
+                "genre": genre
+            })
+    else:
+        # Dummy if missing
+        test_names = get_test_names()
+        for name in test_names:
+            pt = float(np.random.randint(10, 500))
+            total_playtime += pt
+            playtimes.append({"name": name, "playtime": pt, "genre": ""})
+            
+    # Sort by playtime descending
+    playtimes.sort(key=lambda x: x["playtime"], reverse=True)
+    
+    # PS5 and Multiplayer
+    ps5_count = 0
+    multiplayer_count = 0
+    if not stock_games_df.empty:
+        if 'Bisa_PS5' in stock_games_df.columns:
+            ps5_count = len(stock_games_df[stock_games_df['Bisa_PS5'] == 'Yes'])
+        if 'Local_Multiplayer' in stock_games_df.columns:
+            multiplayer_count = len(stock_games_df[stock_games_df['Local_Multiplayer'] == 'Yes'])
+            
+    # Avg Similarity
+    avg_similarity = 0.0
+    if sim_matrix is not None and sim_matrix.size > 0:
+        avg_similarity = float(sim_matrix.mean())
         
-    return jsonify({"status": "success", "data": trends})
+    return jsonify({
+        "status": "success",
+        "data": {
+            "total_games": int(total_games),
+            "total_playtime": float(total_playtime),
+            "ps5_count": int(ps5_count),
+            "multiplayer_count": int(multiplayer_count),
+            "avg_similarity": float(round(avg_similarity, 3)),
+            "ranking": playtimes
+        }
+    })
 
 @app.route('/api/v1/analytics/genres', methods=['GET'])
 def analytics_genres():

@@ -6,7 +6,7 @@ import ModeB from '../pages/ModeB';
 import ModeC from '../pages/ModeC';
 
 const DashboardLayout = () => {
-  const [activeMode, setActiveMode] = useState('A');
+  const [activeMode, setActiveMode] = useState('C');
 
   const renderContent = () => {
     switch (activeMode) {

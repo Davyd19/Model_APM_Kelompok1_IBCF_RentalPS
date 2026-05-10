@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, Zap, Users, MonitorPlay, Activity, Gamepad2 } from 'lucide-react';
+import { Search, Plus, Trash2, Zap, Users, MonitorPlay, Activity, Gamepad2, ChevronDown, FileBox, Star } from 'lucide-react';
+import GameDetailModal from '../components/GameDetailModal';
 
 const ModeA = () => {
   const [stockGames, setStockGames] = useState([]);
@@ -12,6 +13,11 @@ const ModeA = () => {
   const [coop, setCoop] = useState(false);
   const [story, setStory] = useState(false);
   const [quickMatch, setQuickMatch] = useState(false);
+  const [minRating, setMinRating] = useState(0.0);
+  const [maxSize, setMaxSize] = useState(150);
+  const [platform, setPlatform] = useState('All');
+  const [genre, setGenre] = useState('All');
+  const [selectedGame, setSelectedGame] = useState(null);
 
   useEffect(() => {
     fetch('http://localhost:5000/api/v1/games/stock')
@@ -42,7 +48,11 @@ const ModeA = () => {
       top_k: 10,
       multiplayer_only: coop,
       singleplayer_only: story,
-      quick_match: quickMatch
+      quick_match: quickMatch,
+      min_rating: minRating,
+      max_size_gb: maxSize,
+      ps_version: platform,
+      genre_filter: genre
     };
 
     fetch('http://localhost:5000/api/v1/recommend/player', {
@@ -64,6 +74,7 @@ const ModeA = () => {
   };
 
   return (
+    <>
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
       {/* Left Panel: Inputs */}
       <div className="xl:col-span-1 flex flex-col gap-6">
@@ -146,6 +157,51 @@ const ModeA = () => {
               </div>
               <input type="checkbox" checked={quickMatch} onChange={(e) => setQuickMatch(e.target.checked)} className="accent-accent w-4 h-4 rounded" />
             </label>
+            
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-textSecondary block mb-1 font-medium">Platform</label>
+                  <div className="relative">
+                    <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full bg-background border border-white/10 rounded-lg py-1.5 pl-3 pr-8 text-sm text-textPrimary appearance-none focus:outline-none focus:border-accent">
+                      <option value="All">Semua</option>
+                      <option value="PS4">PS4</option>
+                      <option value="PS5">PS5</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-2 text-textSecondary pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-textSecondary block mb-1 font-medium">Genre</label>
+                  <div className="relative">
+                    <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-background border border-white/10 rounded-lg py-1.5 pl-3 pr-8 text-sm text-textPrimary appearance-none focus:outline-none focus:border-accent">
+                      <option value="All">Semua</option>
+                      <option value="Action">Action</option>
+                      <option value="RPG">RPG</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Racing">Racing</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-2 text-textSecondary pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-textSecondary font-medium">Minimum Rating</label>
+                  <span className="text-xs text-accent font-bold">{minRating}</span>
+                </div>
+                <input type="range" min="0" max="5" step="0.1" value={minRating} onChange={(e) => setMinRating(parseFloat(e.target.value))} className="w-full accent-accent" />
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-textSecondary font-medium">Max Size (GB)</label>
+                  <span className="text-xs text-danger font-bold">{maxSize}</span>
+                </div>
+                <input type="range" min="10" max="300" step="5" value={maxSize} onChange={(e) => setMaxSize(parseInt(e.target.value))} className="w-full accent-danger" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -172,7 +228,11 @@ const ModeA = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {recommendations.map((rec, i) => (
-              <div key={i} className="bg-background rounded-xl p-5 border border-white/5 hover:border-accent/40 transition-all hover:shadow-[0_0_20px_rgba(74,222,128,0.1)] group flex flex-col relative overflow-hidden">
+              <div 
+                key={i} 
+                className="bg-background rounded-xl p-5 border border-white/5 hover:border-accent/40 transition-all hover:shadow-[0_0_20px_rgba(74,222,128,0.1)] group flex flex-col relative overflow-hidden cursor-pointer"
+                onClick={() => setSelectedGame(rec.name)}
+              >
                 <div className="absolute top-0 left-0 w-1 h-full bg-accent/20 group-hover:bg-accent transition-colors"></div>
                 <div className="flex justify-between items-start mb-3 pl-2">
                   <h4 className="font-bold text-lg leading-tight text-textPrimary group-hover:text-accent transition-colors">{rec.name}</h4>
@@ -185,16 +245,27 @@ const ModeA = () => {
                 <p className="text-sm text-textSecondary line-clamp-1 mb-4 pl-2 font-medium">{rec.genres}</p>
                 
                 <div className="mt-auto flex justify-between items-center pl-2">
-                  <div className="text-xs font-semibold bg-card border border-white/5 px-3 py-1.5 rounded-md text-textSecondary flex items-center gap-2">
-                    <FileBox size={14} className="text-white/30" />
-                    {rec.size_gb} GB
-                  </div>
-                  {rec.Local_Multiplayer === 'Yes' && (
-                    <div className="text-xs text-textSecondary flex items-center gap-1">
-                      <Users size={14} className="text-white/30" />
-                      Co-op
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-semibold bg-card border border-white/5 px-3 py-1.5 rounded-md text-textSecondary flex items-center gap-2">
+                      <FileBox size={14} className="text-white/30" />
+                      {rec.size_gb} GB
                     </div>
-                  )}
+                    {rec.rating && (
+                      <div className="text-xs text-yellow-400 flex items-center gap-1 bg-yellow-400/10 px-2 py-1.5 rounded-md border border-yellow-400/20">
+                        <Star size={11} />
+                        {Number(rec.rating).toFixed(1)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {rec.Local_Multiplayer === 'Yes' && (
+                      <div className="text-xs text-textSecondary flex items-center gap-1">
+                        <Users size={14} className="text-white/30" />
+                        Co-op
+                      </div>
+                    )}
+                    <span className="text-[10px] text-accent/50 group-hover:text-accent transition-colors">Tap →</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -209,6 +280,8 @@ const ModeA = () => {
         </div>
       </div>
     </div>
+    {selectedGame && <GameDetailModal gameName={selectedGame} onClose={() => setSelectedGame(null)} />}
+    </>
   );
 };
 

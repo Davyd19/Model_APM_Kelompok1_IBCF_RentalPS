@@ -3,9 +3,9 @@ import { Gamepad2, LayoutDashboard, Settings, UserPlus, FileBox } from 'lucide-r
 
 const Sidebar = ({ activeMode, setActiveMode }) => {
   const menuItems = [
+    { id: 'C', label: 'Analytics', icon: <LayoutDashboard size={20} /> },
     { id: 'A', label: 'Player', icon: <Gamepad2 size={20} /> },
     { id: 'B', label: 'Owner', icon: <FileBox size={20} /> },
-    { id: 'C', label: 'Analytics', icon: <LayoutDashboard size={20} /> },
   ];
 
   return (
