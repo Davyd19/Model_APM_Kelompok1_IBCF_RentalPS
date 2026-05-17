@@ -120,6 +120,66 @@ def get_stock_games():
     games = get_test_names()
     return jsonify({"status": "success", "data": games})
 
+@app.route('/api/v1/stock/stats', methods=['GET'])
+def get_stock_stats():
+    """Returns real statistics for games currently in stock (df_test)."""
+    if df_test is None or df_train is None:
+        return jsonify({"status": "error", "message": "Data tidak tersedia"}), 500
+
+    test_names = get_test_names()
+    total_games = int(len(test_names))
+
+    # Get rows from df_train that match stock games
+    stock_df = df_train[df_train['name'].isin(test_names)].copy()
+
+    # Total size
+    total_size_gb = 0.0
+    if 'size_gb' in stock_df.columns:
+        total_size_gb = float(pd.to_numeric(stock_df['size_gb'], errors='coerce').fillna(0).sum())
+
+    # Build per-game detail list
+    stock_list = []
+    playtime_map = {}
+    if isinstance(df_test, pd.DataFrame) and 'Total_Playtime' in df_test.columns:
+        for idx, name in enumerate(test_names):
+            val = pd.to_numeric(df_test['Total_Playtime'].iloc[idx], errors='coerce')
+            playtime_map[name] = float(val) if not pd.isna(val) else 0.0
+
+    for name in test_names:
+        row = stock_df[stock_df['name'] == name]
+        if row.empty:
+            stock_list.append({
+                "name": name,
+                "genres": None,
+                "size_gb": None,
+                "rating": None,
+                "Bisa_PS4": None,
+                "Bisa_PS5": None,
+                "Local_Multiplayer": None,
+                "total_playtime": playtime_map.get(name, 0.0)
+            })
+        else:
+            r = row.iloc[0]
+            stock_list.append({
+                "name": name,
+                "genres": str(r['genres']) if 'genres' in r.index and r['genres'] is not None else None,
+                "size_gb": float(r['size_gb']) if 'size_gb' in r.index and r['size_gb'] is not None else None,
+                "rating": float(r['rating']) if 'rating' in r.index and r['rating'] is not None else None,
+                "Bisa_PS4": str(r['Bisa_PS4']) if 'Bisa_PS4' in r.index else None,
+                "Bisa_PS5": str(r['Bisa_PS5']) if 'Bisa_PS5' in r.index else None,
+                "Local_Multiplayer": str(r['Local_Multiplayer']) if 'Local_Multiplayer' in r.index else None,
+                "total_playtime": playtime_map.get(name, 0.0)
+            })
+
+    return jsonify({
+        "status": "success",
+        "data": {
+            "total_games": total_games,
+            "total_size_gb": round(total_size_gb, 2),
+            "stock_list": stock_list
+        }
+    })
+
 @app.route('/api/v1/game/detail/<path:game_name>', methods=['GET'])
 def get_game_detail(game_name):
     if df_train is None:
